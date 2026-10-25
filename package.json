@@ -43,5 +43,10 @@
     "@types/node": "^20.12.0",
     "homebridge": "^1.8.0",
     "typescript": "^5.4.0"
+  },
+  "allowScripts": {
+    "homebridge-panamax-43xx": true,
+    "fsevents": false,
+    "unrs-resolver": false
   }
 }
