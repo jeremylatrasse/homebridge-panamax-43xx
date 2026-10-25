@@ -1,0 +1,67 @@
+name: Auto Increment Version on Push
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    # Skip if the push already came from the local pre-push hook or this workflow
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Increment patch version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          NEW_VERSION=$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const parts = (pkg.version || "1.0.0").split(".").map(Number);
+            parts[2] = (parts[2] || 0) + 1;
+            const nextVersion = parts.join(".");
+            pkg.version = nextVersion;
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+
+            if (fs.existsSync("package-lock.json")) {
+              const lock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+              lock.version = nextVersion;
+              if (lock.packages && lock.packages[""]) {
+                lock.packages[""].version = nextVersion;
+              }
+              fs.writeFileSync("package-lock.json", JSON.stringify(lock, null, 2) + "\n");
+            }
+
+            const pbxPath = "homebridge-panamax-43xx.xcodeproj/project.pbxproj";
+            if (fs.existsSync(pbxPath)) {
+              let pbx = fs.readFileSync(pbxPath, "utf8");
+              pbx = pbx.replace(/MARKETING_VERSION = [^;]+;/g, `MARKETING_VERSION = ${nextVersion};`);
+              pbx = pbx.replace(/CURRENT_PROJECT_VERSION = (\d+);/g, (_, n) => `CURRENT_PROJECT_VERSION = ${Number(n) + 1};`);
+              fs.writeFileSync(pbxPath, pbx);
+            }
+
+            process.stdout.write(nextVersion);
+          ')
+
+          git add package.json package-lock.json
+          if [ -f "homebridge-panamax-43xx.xcodeproj/project.pbxproj" ]; then
+            git add -f "homebridge-panamax-43xx.xcodeproj/project.pbxproj" 2>/dev/null || true
+          fi
+          git commit -m "chore(release): v${NEW_VERSION} [skip ci]"
+          git tag -f "v${NEW_VERSION}"
+          git push origin HEAD:main --follow-tags
