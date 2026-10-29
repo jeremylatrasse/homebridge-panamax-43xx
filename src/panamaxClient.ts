@@ -73,10 +73,6 @@ export class PanamaxClient extends EventEmitter {
     this.disconnect();
   }
 
-  private connect(): void {
-    this.ensureConnected().catch(() => {/* handled by reconnect loop */});
-  }
-
   private ensureConnected(): Promise<void> {
     if (this.isConnected && this.socket && !this.socket.destroyed) {
       return Promise.resolve();

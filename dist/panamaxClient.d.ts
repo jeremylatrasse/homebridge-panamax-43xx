@@ -34,7 +34,6 @@ export declare class PanamaxClient extends EventEmitter {
     constructor(config: PanamaxClientConfig, log: Logger);
     start(): void;
     stop(): void;
-    private connect;
     private ensureConnected;
     private scheduleReconnect;
     private disconnect;
@@ -47,8 +46,7 @@ export declare class PanamaxClient extends EventEmitter {
      */
     sendRaw(command: string): Promise<void>;
     /**
-     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.
-     */
+     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.\n   */
     private stripTelnetIAC;
     private handleIncomingData;
     private processLine;

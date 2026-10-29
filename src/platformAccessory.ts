@@ -238,10 +238,16 @@ export class PanamaxDeviceAccessory {
     service.getCharacteristic(this.platform.Characteristic.On)
       .onSet(async (value) => {
         const on = value as boolean;
-        if (on) {
-          await this.client.setAllOn();
-        } else {
-          await this.client.setAllOff();
+        try {
+          if (on) {
+            await this.client.setAllOn();
+          } else {
+            await this.client.setAllOff();
+          }
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+          throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
       })
       .onGet(() => this.isAnyOutletOn());
@@ -270,6 +276,10 @@ export class PanamaxDeviceAccessory {
               } else {
                 await this.client.triggerReboot2();
               }
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : String(err);
+              this.platform.log.error(`[${this.deviceConfig.name}] Failed to trigger Reboot ${rebootId}: ${message}`);
+              throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
             } finally {
               // Momentary reset back to OFF after 1 second
               setTimeout(() => {
@@ -434,10 +444,16 @@ export class PanamaxMasterSwitchAccessory {
     this.service.getCharacteristic(this.platform.Characteristic.On)
       .onSet(async (value) => {
         const on = value as boolean;
-        if (on) {
-          await this.client.setAllOn();
-        } else {
-          await this.client.setAllOff();
+        try {
+          if (on) {
+            await this.client.setAllOn();
+          } else {
+            await this.client.setAllOff();
+          }
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+          throw new this.platform.api.hap.HapStatusError(this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
         }
       })
       .onGet(() => this.isAnyOutletOn());

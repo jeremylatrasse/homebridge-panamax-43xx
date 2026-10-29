@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PanamaxMasterSwitchAccessory = exports.PanamaxIndividualOutletAccessory = exports.PanamaxDeviceAccessory = exports.resolveOrderedOutlets = exports.resolveOutletControlMode = void 0;
+exports.PanamaxMasterSwitchAccessory = exports.PanamaxIndividualOutletAccessory = exports.PanamaxDeviceAccessory = void 0;
+exports.resolveOutletControlMode = resolveOutletControlMode;
+exports.resolveOrderedOutlets = resolveOrderedOutlets;
 function resolveOutletControlMode(deviceConfig) {
     if (deviceConfig.outletControlMode === 'outletsAndMaster' ||
         deviceConfig.outletControlMode === 'outletsOnly' ||
@@ -12,7 +14,6 @@ function resolveOutletControlMode(deviceConfig) {
     }
     return 'outletsAndMaster';
 }
-exports.resolveOutletControlMode = resolveOutletControlMode;
 function resolveOrderedOutlets(deviceConfig) {
     const ordered = [];
     const legacyOutlets = Array.isArray(deviceConfig.outlets) ? deviceConfig.outlets : [];
@@ -31,7 +32,6 @@ function resolveOrderedOutlets(deviceConfig) {
     }
     return ordered;
 }
-exports.resolveOrderedOutlets = resolveOrderedOutlets;
 /**
  * Unified Device Accessory (Default & Recommended):
  * Exposes the entire Panamax unit as a single HomeKit accessory with 8 outlet services (1..8) and/or a Master Switch.
@@ -172,11 +172,18 @@ class PanamaxDeviceAccessory {
         service.getCharacteristic(this.platform.Characteristic.On)
             .onSet(async (value) => {
             const on = value;
-            if (on) {
-                await this.client.setAllOn();
+            try {
+                if (on) {
+                    await this.client.setAllOn();
+                }
+                else {
+                    await this.client.setAllOff();
+                }
             }
-            else {
-                await this.client.setAllOff();
+            catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+                throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
             }
         })
             .onGet(() => this.isAnyOutletOn());
@@ -201,6 +208,11 @@ class PanamaxDeviceAccessory {
                         else {
                             await this.client.triggerReboot2();
                         }
+                    }
+                    catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        this.platform.log.error(`[${this.deviceConfig.name}] Failed to trigger Reboot ${rebootId}: ${message}`);
+                        throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
                     }
                     finally {
                         // Momentary reset back to OFF after 1 second
@@ -356,11 +368,18 @@ class PanamaxMasterSwitchAccessory {
         this.service.getCharacteristic(this.platform.Characteristic.On)
             .onSet(async (value) => {
             const on = value;
-            if (on) {
-                await this.client.setAllOn();
+            try {
+                if (on) {
+                    await this.client.setAllOn();
+                }
+                else {
+                    await this.client.setAllOff();
+                }
             }
-            else {
-                await this.client.setAllOff();
+            catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+                throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
             }
         })
             .onGet(() => this.isAnyOutletOn());
