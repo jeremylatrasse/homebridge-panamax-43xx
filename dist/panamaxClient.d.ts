@@ -18,9 +18,11 @@ export declare class PanamaxClient extends EventEmitter {
     private socket;
     private isConnected;
     private isConnecting;
+    isOffline: boolean;
     private connectPromise;
     private reconnectTimer;
     private pollTimer;
+    private heartbeatTimer;
     private sendQueue;
     private buffer;
     status: PanamaxDeviceStatus;
@@ -34,10 +36,13 @@ export declare class PanamaxClient extends EventEmitter {
     constructor(config: PanamaxClientConfig, log: Logger);
     start(): void;
     stop(): void;
+    private clearHeartbeatTimer;
+    private markOfflineOnFirstDrop;
     private ensureConnected;
     private scheduleReconnect;
     private disconnect;
     private startPolling;
+    private sendHeartbeatPoll;
     private writeDirectly;
     /**
      * Send a raw ASCII command string over the socket.

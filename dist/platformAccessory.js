@@ -181,8 +181,10 @@ class PanamaxDeviceAccessory {
                 }
             }
             catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
-                this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+                if (!this.client.isOffline) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+                }
                 throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
             }
         })
@@ -210,8 +212,10 @@ class PanamaxDeviceAccessory {
                         }
                     }
                     catch (err) {
-                        const message = err instanceof Error ? err.message : String(err);
-                        this.platform.log.error(`[${this.deviceConfig.name}] Failed to trigger Reboot ${rebootId}: ${message}`);
+                        if (!this.client.isOffline) {
+                            const message = err instanceof Error ? err.message : String(err);
+                            this.platform.log.error(`[${this.deviceConfig.name}] Failed to trigger Reboot ${rebootId}: ${message}`);
+                        }
                         throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
                     }
                     finally {
@@ -242,8 +246,10 @@ class PanamaxDeviceAccessory {
             }
         }
         catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            this.platform.log.error(`[${this.deviceConfig.name}] Failed to switch outlet ${outletIndex}: ${message}`);
+            if (!this.client.isOffline) {
+                const message = err instanceof Error ? err.message : String(err);
+                this.platform.log.error(`[${this.deviceConfig.name}] Failed to switch outlet ${outletIndex}: ${message}`);
+            }
             throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
         }
     }
@@ -322,8 +328,10 @@ class PanamaxIndividualOutletAccessory {
             }
         }
         catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            this.platform.log.error(`[${this.deviceConfig.name}] Outlet ${this.outletIndex} error: ${message}`);
+            if (!this.client.isOffline) {
+                const message = err instanceof Error ? err.message : String(err);
+                this.platform.log.error(`[${this.deviceConfig.name}] Outlet ${this.outletIndex} error: ${message}`);
+            }
             throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
         }
     }
@@ -377,8 +385,10 @@ class PanamaxMasterSwitchAccessory {
                 }
             }
             catch (err) {
-                const message = err instanceof Error ? err.message : String(err);
-                this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+                if (!this.client.isOffline) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    this.platform.log.error(`[${this.deviceConfig.name}] Failed to toggle All Outlets: ${message}`);
+                }
                 throw new this.platform.api.hap.HapStatusError(-70402 /* this.platform.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE */);
             }
         })
