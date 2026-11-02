@@ -35,6 +35,9 @@ class Panamax43xxPlatform {
     discoverDevices() {
         const devices = this.config.devices || [];
         const activeUUIDs = new Set();
+        const registeredPlatformName = this.config.platform
+            ? String(this.config.platform).split('.').pop() || settings_1.PLATFORM_NAME
+            : settings_1.PLATFORM_NAME;
         if (devices.length === 0) {
             this.log.warn('No Panamax devices configured. Please check your Homebridge configuration.');
             return;
@@ -76,7 +79,7 @@ class Panamax43xxPlatform {
                     this.log.info(`[${deviceName}] Registering new unified device accessory: "${deviceName}"`);
                     const accessory = new this.api.platformAccessory(deviceName, deviceUuid);
                     new platformAccessory_1.PanamaxDeviceAccessory(this, accessory, client, { ...deviceConfig, name: deviceName });
-                    this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [accessory]);
+                    this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, registeredPlatformName, [accessory]);
                     this.accessories.push(accessory);
                 }
             }
@@ -102,7 +105,7 @@ class Panamax43xxPlatform {
                             this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
                             const accessory = new this.api.platformAccessory(displayName, outletUuid);
                             new platformAccessory_1.PanamaxIndividualOutletAccessory(this, accessory, client, { ...deviceConfig, name: deviceName }, outlet);
-                            this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [accessory]);
+                            this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, registeredPlatformName, [accessory]);
                             this.accessories.push(accessory);
                         }
                     }
@@ -122,7 +125,7 @@ class Panamax43xxPlatform {
                         this.log.info(`[${deviceName}] Adding master switch accessory: "${masterDisplayName}"`);
                         const accessory = new this.api.platformAccessory(masterDisplayName, masterUuid);
                         new platformAccessory_1.PanamaxMasterSwitchAccessory(this, accessory, client, { ...deviceConfig, name: deviceName });
-                        this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, [accessory]);
+                        this.api.registerPlatformAccessories(settings_1.PLUGIN_NAME, registeredPlatformName, [accessory]);
                         this.accessories.push(accessory);
                     }
                 }
@@ -132,7 +135,7 @@ class Panamax43xxPlatform {
         const staleAccessories = this.accessories.filter((acc) => !activeUUIDs.has(acc.UUID));
         if (staleAccessories.length > 0) {
             this.log.info(`Cleaning up ${staleAccessories.length} stale/legacy accessories from cache.`);
-            this.api.unregisterPlatformAccessories(settings_1.PLUGIN_NAME, settings_1.PLATFORM_NAME, staleAccessories);
+            this.api.unregisterPlatformAccessories(settings_1.PLUGIN_NAME, registeredPlatformName, staleAccessories);
         }
     }
 }

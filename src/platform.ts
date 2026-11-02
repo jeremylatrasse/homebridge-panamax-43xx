@@ -55,6 +55,9 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
   discoverDevices() {
     const devices = (this.config.devices as PanamaxDeviceConfig[]) || [];
     const activeUUIDs = new Set<string>();
+    const registeredPlatformName = this.config.platform
+      ? String(this.config.platform).split('.').pop() || PLATFORM_NAME
+      : PLATFORM_NAME;
 
     if (devices.length === 0) {
       this.log.warn('No Panamax devices configured. Please check your Homebridge configuration.');
@@ -109,7 +112,7 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
           this.log.info(`[${deviceName}] Registering new unified device accessory: "${deviceName}"`);
           const accessory = new this.api.platformAccessory(deviceName, deviceUuid);
           new PanamaxDeviceAccessory(this, accessory, client, { ...deviceConfig, name: deviceName });
-          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+          this.api.registerPlatformAccessories(PLUGIN_NAME, registeredPlatformName, [accessory]);
           this.accessories.push(accessory);
         }
       } else {
@@ -137,7 +140,7 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
               this.log.info(`[${deviceName}] Adding individual outlet accessory: "${displayName}"`);
               const accessory = new this.api.platformAccessory(displayName, outletUuid);
               new PanamaxIndividualOutletAccessory(this, accessory, client, { ...deviceConfig, name: deviceName }, outlet);
-              this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+              this.api.registerPlatformAccessories(PLUGIN_NAME, registeredPlatformName, [accessory]);
               this.accessories.push(accessory);
             }
           }
@@ -159,7 +162,7 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
             this.log.info(`[${deviceName}] Adding master switch accessory: "${masterDisplayName}"`);
             const accessory = new this.api.platformAccessory(masterDisplayName, masterUuid);
             new PanamaxMasterSwitchAccessory(this, accessory, client, { ...deviceConfig, name: deviceName });
-            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+            this.api.registerPlatformAccessories(PLUGIN_NAME, registeredPlatformName, [accessory]);
             this.accessories.push(accessory);
           }
         }
@@ -170,7 +173,7 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
     const staleAccessories = this.accessories.filter((acc) => !activeUUIDs.has(acc.UUID));
     if (staleAccessories.length > 0) {
       this.log.info(`Cleaning up ${staleAccessories.length} stale/legacy accessories from cache.`);
-      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, staleAccessories);
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, registeredPlatformName, staleAccessories);
     }
   }
 }
