@@ -48,6 +48,11 @@ class Panamax43xxPlatform {
                 this.log.warn(`Device #${deviceIndex + 1} (${deviceConfig.name || 'Unnamed'}) is missing host IP or address. Skipping.`);
                 continue;
             }
+            const validation = (0, panamaxClient_1.validatePanamaxHost)(deviceConfig.host);
+            if (!validation.valid) {
+                this.log.error(`Device #${deviceIndex + 1} (${deviceConfig.name || deviceConfig.host}) — ${validation.reason}. Skipping.`);
+                continue;
+            }
             // Ensure every device has an identifiable unique name
             const deviceName = deviceConfig.name?.trim() || `Panamax Unit ${deviceIndex + 1}`;
             const deviceIdentifier = deviceConfig.id?.trim() || deviceName;

@@ -34,8 +34,65 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PanamaxClient = void 0;
+exports.validatePanamaxHost = validatePanamaxHost;
 const events_1 = require("events");
 const net = __importStar(require("net"));
+/**
+ * Validates that an IPv4 address has exactly 4 octets between 0 and 255.
+ * Also permits standard RFC 1123 hostnames (e.g. panamax.local).
+ */
+function validatePanamaxHost(host) {
+    if (typeof host !== 'string' || !host.trim()) {
+        return { valid: false, reason: 'Host is empty or undefined.' };
+    }
+    const trimmed = host.trim();
+    // If host contains only digits and dots, it is an IPv4 address attempt
+    if (/^[0-9.]+$/.test(trimmed)) {
+        const octets = trimmed.split('.');
+        if (octets.length !== 4) {
+            return {
+                valid: false,
+                reason: `Invalid IPv4 address '${trimmed}': an IPv4 address must contain exactly 4 octets (found ${octets.length}). Example: 192.168.1.50`,
+            };
+        }
+        for (let i = 0; i < octets.length; i++) {
+            const octet = octets[i];
+            if (octet === '' || isNaN(Number(octet))) {
+                return {
+                    valid: false,
+                    reason: `Invalid IPv4 address '${trimmed}': octet #${i + 1} is empty or non-numeric.`,
+                };
+            }
+            const num = Number(octet);
+            if (num < 0 || num > 255) {
+                return {
+                    valid: false,
+                    reason: `Invalid IPv4 address '${trimmed}': octet #${i + 1} ('${octet}') is out of range 0-255.`,
+                };
+            }
+            if (octet.length > 1 && octet.startsWith('0')) {
+                return {
+                    valid: false,
+                    reason: `Invalid IPv4 address '${trimmed}': octet #${i + 1} ('${octet}') cannot have leading zeroes.`,
+                };
+            }
+        }
+        return { valid: true };
+    }
+    // Otherwise hostname / FQDN validation:
+    const parts = trimmed.split('.');
+    if (parts.some((p) => p.length === 0)) {
+        return { valid: false, reason: `Invalid hostname '${trimmed}': consecutive or trailing dots.` };
+    }
+    const lastPart = parts[parts.length - 1];
+    if (/^[0-9]+$/.test(lastPart)) {
+        return {
+            valid: false,
+            reason: `Invalid host '${trimmed}': looks like an incomplete IPv4 address with ${parts.length} octets. IPv4 addresses must have exactly 4 octets.`,
+        };
+    }
+    return { valid: true };
+}
 class PanamaxClient extends events_1.EventEmitter {
     log;
     socket = null;
@@ -64,6 +121,11 @@ class PanamaxClient extends events_1.EventEmitter {
     constructor(config, log) {
         super();
         this.log = log;
+        const validation = validatePanamaxHost(config.host);
+        if (!validation.valid) {
+            this.log.error(`[${config.host}] ${validation.reason}`);
+            throw new Error(`[PanamaxClient] ${validation.reason}`);
+        }
         this.host = config.host;
         this.port = config.port || 23;
         this.pollIntervalMs = Math.max((config.pollInterval || 10) * 1000, 2000);

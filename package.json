@@ -1,6 +1,6 @@
 {
   "name": "homebridge-panamax-43xx",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Homebridge dynamic platform plugin for Panamax M4315-PRO and M4320-PRO power conditioners over TCP/Telnet.",
   "license": "Apache-2.0",
   "repository": {
@@ -36,7 +36,9 @@
   "scripts": {
     "compile": "tsc",
     "watch": "tsc --watch",
-    "prepublishOnly": "npm run compile"
+    "prepublishOnly": "npm run compile",
+    "test": "npm run compile && node test-panamax.mjs",
+    "bump": "npm version patch --no-git-tag-version"
   },
   "dependencies": {},
   "devDependencies": {

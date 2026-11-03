@@ -9,7 +9,7 @@ import {
 } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { PanamaxClient } from './panamaxClient';
+import { PanamaxClient, validatePanamaxHost } from './panamaxClient';
 import {
   PanamaxDeviceAccessory,
   PanamaxIndividualOutletAccessory,
@@ -69,6 +69,12 @@ export class Panamax43xxPlatform implements DynamicPlatformPlugin {
     for (const [deviceIndex, deviceConfig] of devices.entries()) {
       if (!deviceConfig.host) {
         this.log.warn(`Device #${deviceIndex + 1} (${deviceConfig.name || 'Unnamed'}) is missing host IP or address. Skipping.`);
+        continue;
+      }
+
+      const validation = validatePanamaxHost(deviceConfig.host);
+      if (!validation.valid) {
+        this.log.error(`Device #${deviceIndex + 1} (${deviceConfig.name || deviceConfig.host}) — ${validation.reason}. Skipping.`);
         continue;
       }
 

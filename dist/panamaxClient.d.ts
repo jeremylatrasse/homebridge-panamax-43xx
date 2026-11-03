@@ -13,6 +13,14 @@ export interface PanamaxDeviceStatus {
     firmware?: string;
     faults?: Record<string, string>;
 }
+/**
+ * Validates that an IPv4 address has exactly 4 octets between 0 and 255.
+ * Also permits standard RFC 1123 hostnames (e.g. panamax.local).
+ */
+export declare function validatePanamaxHost(host: string): {
+    valid: boolean;
+    reason?: string;
+};
 export declare class PanamaxClient extends EventEmitter {
     private readonly log;
     private socket;

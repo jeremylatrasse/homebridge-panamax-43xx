@@ -23,9 +23,15 @@
         "title": "Child Bridge",
         "description": "Optional Homebridge Child Bridge settings (managed via Bridge Settings in Homebridge UI).",
         "properties": {
-          "username": { "type": "string" },
-          "port": { "type": "integer" },
-          "name": { "type": "string" }
+          "username": {
+            "type": "string"
+          },
+          "port": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
         }
       },
       "devices": {
@@ -51,7 +57,9 @@
               "title": "IP Address / Hostname",
               "type": "string",
               "placeholder": "192.168.1.50",
-              "description": "Local network IP or hostname of the Panamax BlueBOLT card."
+              "description": "IPv4 address (e.g. 192.168.1.50) or valid hostname of the Panamax BlueBOLT card.",
+              "pattern": "^((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}|(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z]|[A-Za-z][A-Za-z0-9\\-]*[A-Za-z0-9]))$",
+              "required": true
             },
             "port": {
               "title": "TCP / Telnet Port",
@@ -76,8 +84,18 @@
               "type": "string",
               "default": "device",
               "oneOf": [
-                { "title": "Unified Device (Recommended: 1 accessory tile containing outlets)", "enum": ["device"] },
-                { "title": "Individual Accessories (Separate accessory tile per outlet)", "enum": ["individual"] }
+                {
+                  "title": "Unified Device (Recommended: 1 accessory tile containing outlets)",
+                  "enum": [
+                    "device"
+                  ]
+                },
+                {
+                  "title": "Individual Accessories (Separate accessory tile per outlet)",
+                  "enum": [
+                    "individual"
+                  ]
+                }
               ],
               "description": "Unified Device mode presents 1 clean physical accessory in Apple Home and Homebridge. In Apple Home, you can choose to view them as a single tile or separate tiles."
             },
@@ -86,9 +104,24 @@
               "type": "string",
               "default": "outletsAndMaster",
               "oneOf": [
-                { "title": "Individual Outlets (1–8) + Master Switch", "enum": ["outletsAndMaster"] },
-                { "title": "Individual Outlets (1–8) Only", "enum": ["outletsOnly"] },
-                { "title": "Master Switch Only", "enum": ["masterOnly"] }
+                {
+                  "title": "Individual Outlets (1\u20138) + Master Switch",
+                  "enum": [
+                    "outletsAndMaster"
+                  ]
+                },
+                {
+                  "title": "Individual Outlets (1\u20138) Only",
+                  "enum": [
+                    "outletsOnly"
+                  ]
+                },
+                {
+                  "title": "Master Switch Only",
+                  "enum": [
+                    "masterOnly"
+                  ]
+                }
               ],
               "description": "Choose whether to expose all 8 individual outlets and a Master All-Outlets switch, only the 8 individual outlets, or only the Master switch."
             },
@@ -116,8 +149,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -140,8 +183,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -164,8 +217,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -188,8 +251,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -212,8 +285,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -236,8 +319,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -260,8 +353,18 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
@@ -284,17 +387,31 @@
                   "type": "string",
                   "default": "Outlet",
                   "oneOf": [
-                    { "title": "Outlet", "enum": ["Outlet"] },
-                    { "title": "Switch", "enum": ["Switch"] }
+                    {
+                      "title": "Outlet",
+                      "enum": [
+                        "Outlet"
+                      ]
+                    },
+                    {
+                      "title": "Switch",
+                      "enum": [
+                        "Switch"
+                      ]
+                    }
                   ]
                 }
               }
             }
           },
-          "required": ["name", "host"]
+          "required": [
+            "host"
+          ]
         }
       }
     },
-    "required": ["name"]
+    "required": [
+      "name"
+    ]
   }
 }
