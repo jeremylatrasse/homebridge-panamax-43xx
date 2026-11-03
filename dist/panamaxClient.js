@@ -41,13 +41,16 @@ class PanamaxClient extends events_1.EventEmitter {
     socket = null;
     isConnected = false;
     isConnecting = false;
-    isOffline = false;
+    isOffline = true;
     connectPromise = null;
     reconnectTimer = null;
     pollTimer = null;
     heartbeatTimer = null;
     sendQueue = Promise.resolve();
     buffer = '';
+    heartbeatActive = false;
+    expectedPowerState = 'off';
+    heartbeatLogState = 'logged-failure';
     status = {
         outlets: new Array(9).fill(false), // 0 unused, 1..8
     };
@@ -68,10 +71,10 @@ class PanamaxClient extends events_1.EventEmitter {
         this.delayMs = Math.max((config.delay !== undefined ? config.delay : 30) * 1000, 0);
     }
     start() {
-        this.ensureConnected().catch(() => { });
-        this.startPolling();
+        // Heartbeat probing only begins once an ON command is sent
     }
     stop() {
+        this.heartbeatActive = false;
         if (this.pollTimer) {
             clearInterval(this.pollTimer);
             this.pollTimer = null;
@@ -94,10 +97,46 @@ class PanamaxClient extends events_1.EventEmitter {
             this.heartbeatTimer = null;
         }
     }
-    markOfflineOnFirstDrop(reason) {
-        if (!this.isOffline) {
-            this.isOffline = true;
-            this.log.warn(`[${this.host}:${this.port}] ${reason} — unit appears powered off. Suppressing further logging until powered on again.`);
+    beginHeartbeatProbing() {
+        this.heartbeatActive = true;
+        this.expectedPowerState = 'on';
+        if (this.heartbeatLogState !== 'logged-success') {
+            this.heartbeatLogState = 'awaiting-success';
+        }
+        this.startPolling();
+        this.ensureConnected().catch(() => { });
+    }
+    recordHeartbeatSuccess() {
+        this.isOffline = false;
+        if (!this.heartbeatActive) {
+            return;
+        }
+        if (this.heartbeatLogState !== 'logged-success') {
+            if (this.expectedPowerState === 'off') {
+                this.log.info(`[${this.host}:${this.port}] Heartbeat succeeded (unexpected state change while in OFF state) — unit is online.`);
+                this.expectedPowerState = 'on';
+            }
+            else {
+                this.log.info(`[${this.host}:${this.port}] Heartbeat succeeded — unit is online and responding.`);
+            }
+            this.heartbeatLogState = 'logged-success';
+        }
+    }
+    recordHeartbeatFailure(reason) {
+        this.isOffline = true;
+        if (!this.heartbeatActive) {
+            return;
+        }
+        const suffix = reason ? ` (${reason})` : '';
+        if (this.expectedPowerState === 'off') {
+            if (this.heartbeatLogState !== 'logged-failure') {
+                this.log.info(`[${this.host}:${this.port}] Heartbeat failed as expected in OFF state${suffix} — quietly probing until next ON command or state change.`);
+                this.heartbeatLogState = 'logged-failure';
+            }
+        }
+        else if (this.heartbeatLogState !== 'logged-failure') {
+            this.log.warn(`[${this.host}:${this.port}] Heartbeat failed in ON state${suffix} — quietly probing until next ON command or state change.`);
+            this.heartbeatLogState = 'logged-failure';
         }
     }
     ensureConnected() {
@@ -122,7 +161,7 @@ class PanamaxClient extends events_1.EventEmitter {
             const connectTimeout = setTimeout(() => {
                 if (!settled) {
                     settled = true;
-                    this.markOfflineOnFirstDrop('Heartbeat/connection timed out');
+                    this.recordHeartbeatFailure('connection timed out');
                     socket.destroy(new Error(`Connection timeout to ${this.host}:${this.port}`));
                     reject(new Error(`Connection timeout to Panamax at ${this.host}:${this.port}`));
                 }
@@ -131,13 +170,12 @@ class PanamaxClient extends events_1.EventEmitter {
                 clearTimeout(connectTimeout);
                 this.isConnected = true;
                 this.isConnecting = false;
-                this.isOffline = false;
                 this.connectPromise = null;
                 // Disable idle socket timeout so the connection stays open between polls,
                 // and use TCP keep-alive to detect dead peers.
                 socket.setTimeout(0);
                 socket.setKeepAlive(true, 15000);
-                this.log.info(`[${this.host}:${this.port}] Connected to Panamax device.`);
+                this.log.debug(`[${this.host}:${this.port}] TCP connected to Panamax device.`);
                 this.emit('connected');
                 if (!settled) {
                     settled = true;
@@ -156,7 +194,7 @@ class PanamaxClient extends events_1.EventEmitter {
             });
             socket.on('error', (err) => {
                 clearTimeout(connectTimeout);
-                this.markOfflineOnFirstDrop(`Heartbeat lost (${err.message})`);
+                this.recordHeartbeatFailure(err.message);
                 if (!settled) {
                     settled = true;
                     reject(err);
@@ -176,19 +214,21 @@ class PanamaxClient extends events_1.EventEmitter {
                     settled = true;
                     reject(new Error(`Connection closed while connecting to Panamax at ${this.host}:${this.port}`));
                 }
-                this.markOfflineOnFirstDrop('Heartbeat connection closed');
+                this.recordHeartbeatFailure('connection closed');
                 this.scheduleReconnect();
             });
         });
         return this.connectPromise;
     }
     scheduleReconnect() {
-        if (this.reconnectTimer || this.isConnecting || this.isConnected) {
+        if (!this.heartbeatActive || this.reconnectTimer || this.isConnecting || this.isConnected) {
             return;
         }
         this.reconnectTimer = setTimeout(() => {
             this.reconnectTimer = null;
-            this.ensureConnected().catch(() => { });
+            if (this.heartbeatActive) {
+                this.ensureConnected().catch(() => { });
+            }
         }, 5000);
     }
     disconnect() {
@@ -207,6 +247,9 @@ class PanamaxClient extends events_1.EventEmitter {
             clearInterval(this.pollTimer);
         }
         this.pollTimer = setInterval(() => {
+            if (!this.heartbeatActive) {
+                return;
+            }
             if (this.isConnected) {
                 this.sendHeartbeatPoll();
             }
@@ -220,7 +263,7 @@ class PanamaxClient extends events_1.EventEmitter {
             const timeout = Math.min(this.timeoutMs, Math.max(this.pollIntervalMs - 500, 1000));
             this.heartbeatTimer = setTimeout(() => {
                 this.heartbeatTimer = null;
-                this.markOfflineOnFirstDrop('Dropped heartbeat');
+                this.recordHeartbeatFailure('dropped heartbeat');
                 this.disconnect();
                 this.emit('disconnected');
                 this.scheduleReconnect();
@@ -228,7 +271,7 @@ class PanamaxClient extends events_1.EventEmitter {
         }
         this.queryOutletStatus().catch((err) => {
             this.clearHeartbeatTimer();
-            this.markOfflineOnFirstDrop(`Dropped heartbeat (${err.message})`);
+            this.recordHeartbeatFailure(err.message);
         });
     }
     writeDirectly(command) {
@@ -272,7 +315,8 @@ class PanamaxClient extends events_1.EventEmitter {
         return task;
     }
     /**
-     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.\n   */
+     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.
+     */
     stripTelnetIAC(data) {
         const clean = [];
         let i = 0;
@@ -298,7 +342,7 @@ class PanamaxClient extends events_1.EventEmitter {
     }
     handleIncomingData(chunk) {
         this.clearHeartbeatTimer();
-        this.isOffline = false;
+        this.recordHeartbeatSuccess();
         const cleaned = this.stripTelnetIAC(chunk);
         this.buffer += cleaned.toString('ascii');
         let delimiterIndex;
@@ -380,13 +424,22 @@ class PanamaxClient extends events_1.EventEmitter {
         }
         const stateStr = on ? 'ON' : 'OFF';
         const command = `!SWITCH ${outletNumber} ${stateStr}\r`;
-        if (!this.isOffline) {
-            this.log.info(`[${this.host}] Switching Outlet ${outletNumber} -> ${stateStr} (delay: ${this.delayMs / 1000}s)`);
-        }
+        this.log.debug(`[${this.host}] Switching Outlet ${outletNumber} -> ${stateStr} (delay: ${this.delayMs / 1000}s)`);
         // Update optimistic state and mark outlet in delay window
         this.status.outlets[outletNumber] = on;
         if (this.delayMs > 0) {
             this.inFlightDelayUntil.set(outletNumber, Date.now() + this.delayMs);
+        }
+        if (on) {
+            this.beginHeartbeatProbing();
+        }
+        else if (!this.status.outlets.slice(1).some(Boolean)) {
+            this.heartbeatActive = true;
+            this.expectedPowerState = 'off';
+            this.heartbeatLogState = 'awaiting-expected-failure';
+            if (!this.pollTimer) {
+                this.startPolling();
+            }
         }
         // Clear any previous pending confirmation timer for this outlet
         const existingTimer = this.confirmationTimers.get(outletNumber);
@@ -407,9 +460,8 @@ class PanamaxClient extends events_1.EventEmitter {
      * Turn all outlets ON simultaneously.
      */
     async setAllOn() {
-        if (!this.isOffline) {
-            this.log.info(`[${this.host}] Executing ALL_ON (delay: ${this.delayMs / 1000}s)`);
-        }
+        this.log.debug(`[${this.host}] Executing ALL_ON (delay: ${this.delayMs / 1000}s)`);
+        this.beginHeartbeatProbing();
         const now = Date.now();
         for (let i = 1; i <= 8; i++) {
             this.status.outlets[i] = true;
@@ -434,8 +486,12 @@ class PanamaxClient extends events_1.EventEmitter {
      * Turn all outlets OFF simultaneously.
      */
     async setAllOff() {
-        if (!this.isOffline) {
-            this.log.info(`[${this.host}] Executing ALL_OFF (delay: ${this.delayMs / 1000}s)`);
+        this.log.debug(`[${this.host}] Executing ALL_OFF (delay: ${this.delayMs / 1000}s)`);
+        this.heartbeatActive = true;
+        this.expectedPowerState = 'off';
+        this.heartbeatLogState = 'awaiting-expected-failure';
+        if (!this.pollTimer) {
+            this.startPolling();
         }
         const now = Date.now();
         for (let i = 1; i <= 8; i++) {
@@ -461,18 +517,14 @@ class PanamaxClient extends events_1.EventEmitter {
      * Trigger Reboot 1 sequence.
      */
     async triggerReboot1() {
-        if (!this.isOffline) {
-            this.log.info(`[${this.host}] Triggering REBOOT_1`);
-        }
+        this.beginHeartbeatProbing();
         await this.sendRaw('!REBOOT_1\r');
     }
     /**
      * Trigger Reboot 2 sequence.
      */
     async triggerReboot2() {
-        if (!this.isOffline) {
-            this.log.info(`[${this.host}] Triggering REBOOT_2`);
-        }
+        this.beginHeartbeatProbing();
         await this.sendRaw('!REBOOT_2\r');
     }
     /**

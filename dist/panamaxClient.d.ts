@@ -25,6 +25,9 @@ export declare class PanamaxClient extends EventEmitter {
     private heartbeatTimer;
     private sendQueue;
     private buffer;
+    private heartbeatActive;
+    private expectedPowerState;
+    private heartbeatLogState;
     status: PanamaxDeviceStatus;
     private readonly host;
     private readonly port;
@@ -37,7 +40,9 @@ export declare class PanamaxClient extends EventEmitter {
     start(): void;
     stop(): void;
     private clearHeartbeatTimer;
-    private markOfflineOnFirstDrop;
+    private beginHeartbeatProbing;
+    private recordHeartbeatSuccess;
+    private recordHeartbeatFailure;
     private ensureConnected;
     private scheduleReconnect;
     private disconnect;
@@ -51,7 +56,8 @@ export declare class PanamaxClient extends EventEmitter {
      */
     sendRaw(command: string): Promise<void>;
     /**
-     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.\n   */
+     * Strips Telnet IAC (0xFF) negotiation bytes so raw ASCII text is parsed cleanly.
+     */
     private stripTelnetIAC;
     private handleIncomingData;
     private processLine;
