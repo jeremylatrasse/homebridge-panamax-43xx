@@ -178,10 +178,22 @@ This repository uses local hooks (`pre-commit`, `post-commit`, `pre-push`, insta
   SKIP_VERSION_BUMP=1 git commit -m "..."
   ```
 
-### GitHub Actions (`.github/workflows/bump-version.yml`)
-* On every push to `main` / `master` (except `chore(release):` or `[skip ci]` commits) or manual `workflow_dispatch`, CI checks out the repo on Node 24, runs `npm ci && npm test`, creates/updates the `vX.Y.Z` git tag matching `package.json`, and runs `npm publish --access public` if that version is not already published on npm.
-* Supports **npm Trusted Publishing (OIDC)** automatically via `id-token: write` (configure Trusted Publisher on npmjs.com with workflow filename `bump-version.yml`) as well as a classic `NPM_TOKEN` repository secret if configured.
-* **Do not** add a second unconditional `npm version patch` step in CI while local `pre-commit` hooks are active, or every commit will be double-bumped.
+### GitHub Actions & npm OIDC Trusted Publishing (`.github/workflows/bump-version.yml`)
+* On every push to `main` / `master` (except `chore(release):` or `[skip ci]` commits) or manual `workflow_dispatch`, CI runs on **Node 24** (`actions/checkout@v7` + `actions/setup-node@v7`, shipping with `npm >= 11.5.1`), executes `npm ci && npm test`, creates/updates the `vX.Y.Z` git tag matching `package.json`, and automatically publishes to npm via **GitHub OIDC Trusted Publishing** with **SLSA provenance attestation** (`https://slsa.dev/provenance/v1`).
+* **Trusted Publisher Settings on npmjs.com** (`https://www.npmjs.com/package/homebridge-panamax-43xx/access`):
+  * A brand-new package must be published manually once (e.g., a bootstrap release or initial `npm publish --access public`) before npmjs.com exposes the Trusted Publisher settings.
+  * Provider: **GitHub Actions**
+  * Organization or user: `jeremylatrasse`
+  * Repository: `homebridge-panamax-43xx`
+  * Workflow filename: `bump-version.yml`
+  * Environment name: *(leave blank)*
+  * **Allow npm publish** must be enabled in the Trusted Publisher section on npmjs.com.
+* **Important Workflow Rules for OIDC Publishing:**
+  * Keep `permissions: { contents: write, id-token: write }` on the workflow.
+  * Do **not** pass `registry-url` to `actions/setup-node` unconditionally or write an empty `//registry.npmjs.org/:_authToken=` entry to `~/.npmrc`—an empty token interferes with OIDC Trusted Publishing. Only write `_authToken` if an optional fallback `NPM_TOKEN` secret is explicitly set.
+  * Compare the exact stdout of `npm view "${PKG_NAME}@${PKG_VERSION}" version` against `$PKG_VERSION` (`[ "$PUBLISHED_VER" = "$PKG_VERSION" ]`) rather than relying only on `npm view`'s exit code (some npm versions exit `0` with empty stdout for unpublished versions).
+  * Allow ~2–3 minutes for npm's CDN to propagate newly published versions to `npm view` / `latest` after a successful CI publish.
+  * **Do not** add a second unconditional `npm version patch` step in CI while local `pre-commit` hooks are active, or every commit will be double-bumped.
 
 ### Publishing to npm & `homebridge/verified` Checklist
 1. Inspect what will be included in the npm tarball (`.npmignore` and `package.json` `files` exclude `src/`, tests, Xcode project, `.github/`, `.githooks/`, `Makefile`, and `MAINTAINING.md`):
@@ -189,10 +201,7 @@ This repository uses local hooks (`pre-commit`, `post-commit`, `pre-push`, insta
    npm pack --dry-run
    ```
 2. Run `npm test` and confirm clean `git status`.
-3. Push to `main` (CI automatically runs tests, tags `vX.Y.Z`, and publishes to npm via OIDC Trusted Publishing or `NPM_TOKEN`), or publish manually:
-   ```bash
-   npm publish --access public
-   ```
+3. Push to `main`—GitHub Actions automatically runs tests, tags `vX.Y.Z`, and publishes to npm with OIDC SLSA provenance (or run `npm publish --access public` manually if ever needed).
 4. Before submitting or updating `github.com/homebridge/verified`:
    * Published publicly on npm with `"homebridge-plugin"` in `package.json` `keywords`.
    * Valid `config.schema.json` at root, `pluginAlias` matching `src/settings.ts`, and zero slider fields.
