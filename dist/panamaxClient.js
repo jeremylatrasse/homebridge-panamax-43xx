@@ -35,8 +35,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PanamaxClient = void 0;
 exports.validatePanamaxHost = validatePanamaxHost;
-const events_1 = require("events");
-const net = __importStar(require("net"));
+const node_events_1 = require("node:events");
+const net = __importStar(require("node:net"));
+const settings_1 = require("./settings");
 /**
  * Validates that an IPv4 address has exactly 4 octets between 0 and 255.
  * Also permits standard RFC 1123 hostnames (e.g. panamax.local).
@@ -93,7 +94,7 @@ function validatePanamaxHost(host) {
     }
     return { valid: true };
 }
-class PanamaxClient extends events_1.EventEmitter {
+class PanamaxClient extends node_events_1.EventEmitter {
     log;
     socket = null;
     isConnected = false;
@@ -126,11 +127,11 @@ class PanamaxClient extends events_1.EventEmitter {
             this.log.error(`[${config.host}] ${validation.reason}`);
             throw new Error(`[PanamaxClient] ${validation.reason}`);
         }
-        this.host = config.host;
-        this.port = config.port || 23;
-        this.pollIntervalMs = Math.max((config.pollInterval || 10) * 1000, 2000);
+        this.host = config.host.trim();
+        this.port = config.port || settings_1.PANAMAX_DEFAULT_PORT;
+        this.pollIntervalMs = Math.max((config.pollInterval || settings_1.PANAMAX_DEFAULT_POLL_INTERVAL) * 1000, 2000);
         this.timeoutMs = Math.max((config.timeout || 5) * 1000, 1000);
-        this.delayMs = Math.max((config.delay !== undefined ? config.delay : 30) * 1000, 0);
+        this.delayMs = Math.max((config.delay !== undefined ? config.delay : settings_1.PANAMAX_DEFAULT_DELAY) * 1000, 0);
     }
     start() {
         // Heartbeat probing only begins once an ON command is sent
@@ -451,16 +452,16 @@ class PanamaxClient extends events_1.EventEmitter {
             return;
         }
         // Parse ID responses
-        // E.g., "$PANAMAX", "$MAX 4320-PRO", "$M4320-PRO", "$FIRMWARE: 1.0"
+        // E.g., "$PANAMAX", "$MAX 4315-PRO", "$M4315-PRO", "$MAX 4320-PRO", "$M4320-PRO", "$FIRMWARE: 1.0"
         if (line.startsWith('$PANAMAX')) {
             return;
         }
-        if (line.match(/^\$(MAX\s*4320|M4320)/i)) {
+        if (/^\$(MAX\s*43(?:15|20)|M43(?:15|20))/i.test(line)) {
             this.status.model = line.replace(/^\$/, '').trim();
             this.emit('info', this.status);
             return;
         }
-        if (line.match(/^\$FIRMWARE/i)) {
+        if (/^\$FIRMWARE/i.test(line)) {
             this.status.firmware = line.replace(/^\$FIRMWARE:\s*/i, '').trim();
             this.emit('info', this.status);
             return;

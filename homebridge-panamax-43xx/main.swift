@@ -1,6 +1,6 @@
 //
 //  main.swift
-//  Panamax4320ProHomebridge
+//  homebridge-panamax-43xx
 //
 //  A macOS Swift utility to test and communicate with Panamax M4315-PRO
 //  and M4320-PRO power conditioners over raw TCP / Telnet (port 23).
@@ -98,7 +98,7 @@ actor PanamaxSwiftClient {
 
         // Read response
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { content, _, isComplete, error in
+            connection.receive(minimumIncompleteLength: 1, maximumLength: 4096) { content, _, _, error in
                 if let error = error {
                     continuation.resume(throwing: error)
                     return
@@ -139,7 +139,7 @@ struct PanamaxCLI {
     static func run() async {
         let args = CommandLine.arguments
 
-        if args.contains("-h") || args.contains("--help") || args.count < 2 {
+        if args.contains("--help") || args.count < 2 {
             printUsage()
             return
         }
@@ -156,6 +156,9 @@ struct PanamaxCLI {
                 if i + 1 < args.count {
                     host = args[i + 1]
                     i += 1
+                } else {
+                    printUsage()
+                    return
                 }
             case "--port", "-p":
                 if i + 1 < args.count, let p = UInt16(args[i + 1]) {
@@ -197,7 +200,7 @@ struct PanamaxCLI {
 
         do {
             try await client.connect()
-            print("Connected! Sending command: \(command)")
+            print("Connected! Sending command: \(command.trimmingCharacters(in: .whitespacesAndNewlines))")
             let response = try await client.sendCommand(command)
             print("--- Response ---")
             print(response.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -211,7 +214,7 @@ struct PanamaxCLI {
     static func printUsage() {
         print("""
         Usage:
-          Panamax4320ProHomebridge --host <ip> [options]
+          homebridge-panamax-43xx --host <ip> [options]
 
         Supported Models:
           Panamax M4315-PRO, Panamax M4320-PRO
@@ -224,6 +227,7 @@ struct PanamaxCLI {
           --faults                Query fault conditions (?FAULTSTAT)
           --switch <1-8> <ON|OFF> Switch an outlet ON or OFF
           --raw "<command>"       Send arbitrary raw command (e.g. '!ALL_ON')
+          --help                  Show this usage message
 
         Homebridge Plugin Note:
           The Homebridge plugin source is located in the root repository.

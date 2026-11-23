@@ -1,8 +1,23 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PanamaxMasterSwitchAccessory = exports.PanamaxIndividualOutletAccessory = exports.PanamaxDeviceAccessory = void 0;
+exports.sanitizeHomeKitName = sanitizeHomeKitName;
 exports.resolveOutletControlMode = resolveOutletControlMode;
 exports.resolveOrderedOutlets = resolveOrderedOutlets;
+/**
+ * Sanitizes a user-supplied name for safe use in HomeKit Name / ConfiguredName
+ * characteristics while preserving valid characters and falling back when empty.
+ */
+function sanitizeHomeKitName(value, fallback) {
+    if (typeof value !== 'string') {
+        return fallback;
+    }
+    const cleaned = value
+        .replace(/\s+/g, ' ')
+        .replace(/[\u0000-\u001F\u007F]/g, '')
+        .trim();
+    return cleaned.length > 0 ? cleaned : fallback;
+}
 function resolveOutletControlMode(deviceConfig) {
     if (deviceConfig.outletControlMode === 'outletsAndMaster' ||
         deviceConfig.outletControlMode === 'outletsOnly' ||
@@ -20,9 +35,10 @@ function resolveOrderedOutlets(deviceConfig) {
     for (let i = 1; i <= 8; i++) {
         const fixedKey = `outlet${i}`;
         const fixed = deviceConfig[fixedKey];
-        const legacy = legacyOutlets.find((o) => o.index === i) || legacyOutlets[i - 1];
-        const name = fixed?.name?.trim() || legacy?.name?.trim() || `Outlet ${i}`;
-        const accessoryType = fixed?.accessoryType || legacy?.accessoryType || 'Outlet';
+        const legacy = legacyOutlets.find((o) => o && o.index === i) || legacyOutlets[i - 1];
+        const name = sanitizeHomeKitName(fixed?.name ?? legacy?.name, `Outlet ${i}`);
+        const rawType = fixed?.accessoryType || legacy?.accessoryType;
+        const accessoryType = rawType === 'Switch' ? 'Switch' : 'Outlet';
         ordered.push({
             index: i,
             name,
@@ -125,7 +141,7 @@ class PanamaxDeviceAccessory {
         const orderedOutlets = resolveOrderedOutlets(this.deviceConfig);
         for (const outletConfig of orderedOutlets) {
             const i = outletConfig.index;
-            const outletDisplayName = outletConfig.name?.trim() || `Outlet ${i}`;
+            const outletDisplayName = sanitizeHomeKitName(outletConfig.name, `Outlet ${i}`);
             // Include the configured name in the subtype so that renaming an outlet in Homebridge
             // assigns a fresh HAP instance ID (iid) and forces Apple HomeKit to adopt the new name.
             const subtype = `outlet-${i}-${outletDisplayName}`;
@@ -281,7 +297,7 @@ class PanamaxIndividualOutletAccessory {
         this.outletIndex = outletConfig.index;
         this.isOutletType = (outletConfig.accessoryType || 'Outlet') === 'Outlet';
         const deviceIdentifier = deviceConfig.id || deviceConfig.name;
-        const displayName = `${deviceConfig.name} ${outletConfig.name?.trim() || `Outlet ${this.outletIndex}`}`;
+        const displayName = `${deviceConfig.name} ${sanitizeHomeKitName(outletConfig.name, `Outlet ${this.outletIndex}`)}`;
         this.accessory.displayName = displayName;
         this.accessory.getService(this.platform.Service.AccessoryInformation)
             .setCharacteristic(this.platform.Characteristic.Name, displayName)

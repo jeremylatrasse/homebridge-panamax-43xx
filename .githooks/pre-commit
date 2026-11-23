@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# Automatically unstages local-only Xcode files, increments the patch version in
+# package.json, package-lock.json, and Xcode project.pbxproj, recompiles dist/,
+# and stages package.json, package-lock.json, and dist/ before creating a commit.
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+# Unstage local-only Xcode project/workspace files if accidentally staged
+STAGED_XCODE="$(git diff --cached --name-only | grep -E '\.(xcodeproj|xcworkspace)(/|$)|\.pbxproj$' || true)"
+if [ -n "$STAGED_XCODE" ]; then
+  echo "$STAGED_XCODE" | while IFS= read -r file; do
+    [ -n "$file" ] && git reset -q HEAD -- "$file" 2>/dev/null || true
+  done
+fi
+
+if [ "$SKIP_VERSION_BUMP" = "1" ]; then
+  exit 0
+fi
+
+# Ensure Node/npm are discoverable even when invoked from GUI tools (e.g. Xcode)
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$PATH"
+if ! command -v npm >/dev/null 2>&1 && [ -d "$HOME/.nvm/versions/node" ]; then
+  LATEST_NVM="$(ls -1 "$HOME/.nvm/versions/node" 2>/dev/null | sort -V | tail -n 1)"
+  if [ -n "$LATEST_NVM" ] && [ -d "$HOME/.nvm/versions/node/$LATEST_NVM/bin" ]; then
+    export PATH="$HOME/.nvm/versions/node/$LATEST_NVM/bin:$PATH"
+  fi
+fi
+
+NEW_VERSION="$(/usr/bin/python3 - <<'PY'
+import json, os, re, subprocess, sys
+
+def parse_ver(v):
+    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", str(v or "").strip())
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (1, 0, 0)
+
+def fmt_ver(t):
+    return f"{t[0]}.{t[1]}.{t[2]}"
+
+def git_pkg_ver(ref):
+    try:
+        out = subprocess.check_output(["git", "show", f"{ref}:package.json"], stderr=subprocess.DEVNULL, text=True)
+        return parse_ver(json.loads(out).get("version"))
+    except Exception:
+        return None
+
+if not os.path.exists("package.json"):
+    sys.exit(0)
+
+with open("package.json", "r", encoding="utf-8") as f:
+    pkg = json.load(f)
+
+disk_ver = parse_ver(pkg.get("version"))
+baseline = (1, 0, 0)
+
+for ref in ("HEAD", "origin/main", "origin/master"):
+    v = git_pkg_ver(ref)
+    if v and v > baseline:
+        baseline = v
+
+try:
+    tags = subprocess.check_output(["git", "tag", "-l", "v*"], stderr=subprocess.DEVNULL, text=True).splitlines()
+    for t in tags:
+        tv = parse_ver(t)
+        if tv > baseline:
+            baseline = tv
+except Exception:
+    pass
+
+if disk_ver > baseline:
+    target_ver = disk_ver
+else:
+    target_ver = (baseline[0], baseline[1], baseline[2] + 1)
+
+next_version = fmt_ver(target_ver)
+
+if pkg.get("version") != next_version:
+    pkg["version"] = next_version
+    with open("package.json", "w", encoding="utf-8") as f:
+        json.dump(pkg, f, indent=2)
+        f.write("\n")
+
+if os.path.exists("package-lock.json"):
+    with open("package-lock.json", "r", encoding="utf-8") as f:
+        lock = json.load(f)
+    lock["version"] = next_version
+    if isinstance(lock.get("packages"), dict) and "" in lock["packages"]:
+        lock["packages"][""]["version"] = next_version
+    with open("package-lock.json", "w", encoding="utf-8") as f:
+        json.dump(lock, f, indent=2)
+        f.write("\n")
+
+pbx_path = "homebridge-panamax-43xx.xcodeproj/project.pbxproj"
+if os.path.exists(pbx_path):
+    with open(pbx_path, "r", encoding="utf-8") as f:
+        pbx = f.read()
+    new_pbx = re.sub(r"MARKETING_VERSION = [^;]+;", f"MARKETING_VERSION = {next_version};", pbx)
+    if new_pbx != pbx:
+        new_pbx = re.sub(
+            r"CURRENT_PROJECT_VERSION = (\d+);",
+            lambda m: f"CURRENT_PROJECT_VERSION = {int(m.group(1)) + 1};",
+            new_pbx,
+        )
+        with open(pbx_path, "w", encoding="utf-8") as f:
+            f.write(new_pbx)
+
+sys.stdout.write(next_version)
+PY
+)"
+
+# Recompile TypeScript so dist/ always stays synchronized for zero-compile GitHub installs
+if command -v npm >/dev/null 2>&1 && [ -d "node_modules" ]; then
+  npm run compile >/dev/null
+fi
+
+if [ -n "$NEW_VERSION" ]; then
+  git add package.json 2>/dev/null || true
+  [ -f package-lock.json ] && git add package-lock.json 2>/dev/null || true
+  [ -d dist ] && git add dist 2>/dev/null || true
+fi
+
+exit 0

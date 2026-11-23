@@ -38,6 +38,21 @@ export interface PanamaxDeviceConfig {
   outlets?: OutletConfig[];
 }
 
+/**
+ * Sanitizes a user-supplied name for safe use in HomeKit Name / ConfiguredName
+ * characteristics while preserving valid characters and falling back when empty.
+ */
+export function sanitizeHomeKitName(value: string | undefined, fallback: string): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const cleaned = value
+    .replace(/\s+/g, ' ')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .trim();
+  return cleaned.length > 0 ? cleaned : fallback;
+}
+
 export function resolveOutletControlMode(deviceConfig: PanamaxDeviceConfig): OutletControlMode {
   if (
     deviceConfig.outletControlMode === 'outletsAndMaster' ||
@@ -59,10 +74,11 @@ export function resolveOrderedOutlets(deviceConfig: PanamaxDeviceConfig): Outlet
   for (let i = 1; i <= 8; i++) {
     const fixedKey = `outlet${i}` as `outlet${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
     const fixed = deviceConfig[fixedKey];
-    const legacy = legacyOutlets.find((o) => o.index === i) || legacyOutlets[i - 1];
+    const legacy = legacyOutlets.find((o) => o && o.index === i) || legacyOutlets[i - 1];
 
-    const name = fixed?.name?.trim() || legacy?.name?.trim() || `Outlet ${i}`;
-    const accessoryType = fixed?.accessoryType || legacy?.accessoryType || 'Outlet';
+    const name = sanitizeHomeKitName(fixed?.name ?? legacy?.name, `Outlet ${i}`);
+    const rawType = fixed?.accessoryType || legacy?.accessoryType;
+    const accessoryType: 'Outlet' | 'Switch' = rawType === 'Switch' ? 'Switch' : 'Outlet';
 
     ordered.push({
       index: i,
@@ -176,7 +192,7 @@ export class PanamaxDeviceAccessory {
 
     for (const outletConfig of orderedOutlets) {
       const i = outletConfig.index;
-      const outletDisplayName = outletConfig.name?.trim() || `Outlet ${i}`;
+      const outletDisplayName = sanitizeHomeKitName(outletConfig.name, `Outlet ${i}`);
       // Include the configured name in the subtype so that renaming an outlet in Homebridge
       // assigns a fresh HAP instance ID (iid) and forces Apple HomeKit to adopt the new name.
       const subtype = `outlet-${i}-${outletDisplayName}`;
@@ -348,7 +364,7 @@ export class PanamaxIndividualOutletAccessory {
     this.outletIndex = outletConfig.index;
     this.isOutletType = (outletConfig.accessoryType || 'Outlet') === 'Outlet';
     const deviceIdentifier = deviceConfig.id || deviceConfig.name;
-    const displayName = `${deviceConfig.name} ${outletConfig.name?.trim() || `Outlet ${this.outletIndex}`}`;
+    const displayName = `${deviceConfig.name} ${sanitizeHomeKitName(outletConfig.name, `Outlet ${this.outletIndex}`)}`;
 
     this.accessory.displayName = displayName;
     this.accessory.getService(this.platform.Service.AccessoryInformation)!

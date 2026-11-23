@@ -8,3 +8,19 @@ export declare const PLATFORM_NAME = "Panamax43xx";
  * This matches the name in package.json.
  */
 export declare const PLUGIN_NAME = "homebridge-panamax-43xx";
+/**
+ * Default Panamax BlueBOLT TCP / Telnet port.
+ */
+export declare const PANAMAX_DEFAULT_PORT = 23;
+/**
+ * Default status polling interval in seconds.
+ */
+export declare const PANAMAX_DEFAULT_POLL_INTERVAL = 10;
+/**
+ * Default hardware switching delay window in seconds.
+ */
+export declare const PANAMAX_DEFAULT_DELAY = 30;
+/**
+ * Current plugin version read from package.json.
+ */
+export declare const PLUGIN_VERSION: string;

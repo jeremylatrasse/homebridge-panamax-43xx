@@ -33,6 +33,11 @@ export interface PanamaxDeviceConfig {
     outlet8?: FixedOutletConfig;
     outlets?: OutletConfig[];
 }
+/**
+ * Sanitizes a user-supplied name for safe use in HomeKit Name / ConfiguredName
+ * characteristics while preserving valid characters and falling back when empty.
+ */
+export declare function sanitizeHomeKitName(value: string | undefined, fallback: string): string;
 export declare function resolveOutletControlMode(deviceConfig: PanamaxDeviceConfig): OutletControlMode;
 export declare function resolveOrderedOutlets(deviceConfig: PanamaxDeviceConfig): OutletConfig[];
 /**

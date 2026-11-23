@@ -27,12 +27,32 @@ Both models share the exact same TCP/IP communication protocol, command set, fee
 - **Single Child Bridge for All Units:** Publishes all your configured Panamax units together on **one child bridge** rather than cluttering your setup with separate bridges per device.
 - **Clean Unified Device Layout:** By default, each Panamax unit is published as **one unified accessory** containing all 8 outlets in numeric order (`Outlet 1` through `Outlet 8`) with distinct HomeKit `ConfiguredName` labels.
 - **Flexible Outlet & Master Switch Modes:** Choose between **Individual Outlets (1–8) + Master Switch**, **Individual Outlets (1–8) Only**, or **Master Switch Only**.
-- **Pre-Populated Numeric Outlet Fields:** Outlets 1 through 8 are pre-populated in order (`Outlet 1` first, `Outlet 8` last) in Homebridge Config UI X—no sliders Required.
+- **Pre-Populated Numeric Outlet Fields:** Outlets 1 through 8 are pre-populated in order (`Outlet 1` first, `Outlet 8` last) in Homebridge Config UI X—no sliders required.
 - **Direct Local Network Control:** Fast, reliable communication via raw TCP/Telnet (`Port 23`) directly to the Panamax BlueBOLT card. No cloud connection or external services required.
 - **Smart Hardware Switching Delay:** Includes a configurable 30-second outlet switching delay window. When toggling outlets in Apple Home, HomeKit acknowledges the press immediately so buttons never time out, while background polls prevent premature hardware state readings from snapping buttons back before power sequencing completes.
 - **Real-Time Feedback & State Sync:** Listens for unsolicited feedback broadcasts from the Panamax and polls periodically to keep Apple Home in sync when outlets are toggled physically.
 - **Optional Reboot Switches:** Exposes Reboot 1 and Reboot 2 as momentary buttons in HomeKit to trigger power-cycling sequences.
 - **Built-in Swift Diagnostic Tool:** Includes a native macOS CLI tool in the repository for direct troubleshooting and testing from terminal or Xcode.
+
+---
+
+## Installation
+
+### Homebridge Config UI X (Recommended)
+1. Open the **Homebridge Config UI X** web interface.
+2. Go to the **Plugins** tab and search for `homebridge-panamax-43xx`.
+3. Click **Install** and configure your Panamax unit(s) in the plugin settings.
+
+### Command Line (npm)
+```bash
+npm install -g homebridge-panamax-43xx
+```
+
+### Direct Zero-Compile GitHub Install
+Pre-compiled `dist/` artifacts are tracked in git so Homebridge hosts do not need `typescript` installed:
+```bash
+npm install -g git+https://github.com/jeremylatrasse/homebridge-panamax-43xx.git
+```
 
 ---
 
@@ -109,10 +129,10 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 | `devices` | `array` | **Yes** | `[]` | List of Panamax hardware units to manage |
 | `devices[].name` | `string` | **Yes** | — | Unique, identifiable name for the unit (e.g. *"AV Rack 4320"*, *"Living Room 4315"*) |
 | `devices[].id` | `string` | No | — | Optional unique ID to keep persistent HomeKit pairing if IP changes |
-| `devices[].host` | `string` | **Yes** | — | IP address or hostname of the Panamax unit |
-| `devices[].port` | `integer` | No | `23` | TCP port (default is 23) |
-| `devices[].pollInterval` | `integer` | No | `10` | Status polling interval in seconds |
-| `devices[].delay` | `integer` | No | `30` | Delay in seconds per outlet for hardware power sequencing and relay switching before verifying status |
+| `devices[].host` | `string` | **Yes** | — | 4-octet IPv4 address or RFC 1123 hostname of the Panamax unit |
+| `devices[].port` | `integer` | No | `23` | TCP port (`1`–`65535`, default is `23`) |
+| `devices[].pollInterval` | `integer` | No | `10` | Status polling interval in seconds (`2`–`3600`, default is `10`) |
+| `devices[].delay` | `integer` | No | `30` | Delay in seconds per outlet (`0`–`300`) for hardware power sequencing and relay switching before verifying status |
 | `devices[].accessoryMode` | `string` | No | `"device"` | `"device"` (1 unified accessory per unit) or `"individual"` (separate accessory per outlet) |
 | `devices[].outletControlMode` | `string` | No | `"outletsAndMaster"` | `"outletsAndMaster"` (Outlets 1–8 + Master Switch), `"outletsOnly"` (Outlets 1–8 Only), or `"masterOnly"` (Master Switch Only) |
 | `devices[].enableRebootButtons` | `boolean` | No | `false` | Expose Reboot 1 / Reboot 2 buttons |
@@ -122,19 +142,19 @@ Homebridge child bridges run plugins in an isolated process with their own HomeK
 
 ## macOS Swift Diagnostic Tool
 
-The repository includes a native Swift CLI executable in the Xcode project (`Panamax4320ProHomebridge.xcodeproj`).
+The repository includes a native Swift CLI executable in the Xcode project (`homebridge-panamax-43xx.xcodeproj`).
 
 You can run it from Xcode or terminal to test communication with any Panamax M4315-PRO or M4320-PRO device:
 ```bash
 # Query all outlet states
-./Products/Panamax4320ProHomebridge --host 192.168.1.50 --status
+./Products/homebridge-panamax-43xx --host 192.168.1.50 --status
 
 # Query device identity and firmware
-./Products/Panamax4320ProHomebridge --host 192.168.1.50 --id
+./Products/homebridge-panamax-43xx --host 192.168.1.50 --id
 
 # Switch Outlet 1 ON or OFF
-./Products/Panamax4320ProHomebridge --host 192.168.1.50 --switch 1 ON
-./Products/Panamax4320ProHomebridge --host 192.168.1.50 --switch 1 OFF
+./Products/homebridge-panamax-43xx --host 192.168.1.50 --switch 1 ON
+./Products/homebridge-panamax-43xx --host 192.168.1.50 --switch 1 OFF
 ```
 
 ---

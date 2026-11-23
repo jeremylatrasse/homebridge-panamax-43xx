@@ -65,18 +65,33 @@
               "title": "TCP / Telnet Port",
               "type": "integer",
               "default": 23,
+              "minimum": 1,
+              "maximum": 65535,
+              "x-schema-form": {
+                "type": "number"
+              },
               "description": "Default is 23."
             },
             "pollInterval": {
               "title": "Polling Interval (seconds)",
               "type": "integer",
               "default": 10,
+              "minimum": 2,
+              "maximum": 3600,
+              "x-schema-form": {
+                "type": "number"
+              },
               "description": "How often to poll outlet status to keep Apple Home in sync. Default is 10 seconds."
             },
             "delay": {
               "title": "Outlet Delay (seconds)",
               "type": "integer",
               "default": 30,
+              "minimum": 0,
+              "maximum": 300,
+              "x-schema-form": {
+                "type": "number"
+              },
               "description": "Delay in seconds per outlet to accommodate hardware power sequencing and relay switching before verifying status. Default is 30 seconds."
             },
             "accessoryMode": {

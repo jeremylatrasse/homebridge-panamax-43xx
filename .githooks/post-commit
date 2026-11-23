@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Ensures that partial/pathspec commits (such as commits created by Xcode)
+# include the incremented version in package.json, package-lock.json, and dist/,
+# and creates/updates the local vX.Y.Z tag on HEAD.
+
+if [ "$SKIP_VERSION_BUMP" = "1" ]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+RESULT="$(/usr/bin/python3 - <<'PY'
+import json, os, re, subprocess, sys
+
+def parse_ver(v):
+    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", str(v or "").strip())
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (1, 0, 0)
+
+def fmt_ver(t):
+    return f"{t[0]}.{t[1]}.{t[2]}"
+
+def git_pkg_ver(ref):
+    try:
+        out = subprocess.check_output(["git", "show", f"{ref}:package.json"], stderr=subprocess.DEVNULL, text=True)
+        return parse_ver(json.loads(out).get("version"))
+    except Exception:
+        return None
+
+if not os.path.exists("package.json"):
+    sys.exit(0)
+
+with open("package.json", "r", encoding="utf-8") as f:
+    pkg = json.load(f)
+
+disk_ver = parse_ver(pkg.get("version"))
+head_ver = git_pkg_ver("HEAD") or (1, 0, 0)
+
+baseline = (1, 0, 0)
+for ref in ("HEAD~1", "origin/main", "origin/master"):
+    v = git_pkg_ver(ref)
+    if v and v > baseline:
+        baseline = v
+
+try:
+    tags = subprocess.check_output(["git", "tag", "-l", "v*"], stderr=subprocess.DEVNULL, text=True).splitlines()
+    for t in tags:
+        tv = parse_ver(t)
+        if tv > baseline:
+            baseline = tv
+except Exception:
+    pass
+
+# Check if dist/ has uncommitted changes produced during pre-commit
+dist_dirty = False
+try:
+    dist_status = subprocess.check_output(["git", "status", "--porcelain", "dist"], stderr=subprocess.DEVNULL, text=True).strip()
+    dist_dirty = bool(dist_status)
+except Exception:
+    pass
+
+# If HEAD already has the bumped version matching disk_ver and > baseline and dist/ is clean, no amend needed
+if head_ver > baseline and head_ver >= disk_ver and not dist_dirty:
+    sys.stdout.write(f"OK:{fmt_ver(head_ver)}")
+    sys.exit(0)
+
+target_ver = disk_ver if disk_ver > baseline else (baseline[0], baseline[1], baseline[2] + 1)
+next_version = fmt_ver(target_ver)
+
+if pkg.get("version") != next_version:
+    pkg["version"] = next_version
+    with open("package.json", "w", encoding="utf-8") as f:
+        json.dump(pkg, f, indent=2)
+        f.write("\n")
+
+if os.path.exists("package-lock.json"):
+    with open("package-lock.json", "r", encoding="utf-8") as f:
+        lock = json.load(f)
+    lock["version"] = next_version
+    if isinstance(lock.get("packages"), dict) and "" in lock["packages"]:
+        lock["packages"][""]["version"] = next_version
+    with open("package-lock.json", "w", encoding="utf-8") as f:
+        json.dump(lock, f, indent=2)
+        f.write("\n")
+
+pbx_path = "homebridge-panamax-43xx.xcodeproj/project.pbxproj"
+if os.path.exists(pbx_path):
+    with open(pbx_path, "r", encoding="utf-8") as f:
+        pbx = f.read()
+    new_pbx = re.sub(r"MARKETING_VERSION = [^;]+;", f"MARKETING_VERSION = {next_version};", pbx)
+    if new_pbx != pbx:
+        new_pbx = re.sub(
+            r"CURRENT_PROJECT_VERSION = (\d+);",
+            lambda m: f"CURRENT_PROJECT_VERSION = {int(m.group(1)) + 1};",
+            new_pbx,
+        )
+        with open(pbx_path, "w", encoding="utf-8") as f:
+            f.write(new_pbx)
+
+sys.stdout.write(f"AMEND:{next_version}")
+PY
+)"
+
+MODE="${RESULT%%:*}"
+VERSION="${RESULT#*:}"
+
+if [ "$MODE" = "AMEND" ] && [ -n "$VERSION" ]; then
+  git add package.json 2>/dev/null || true
+  [ -f package-lock.json ] && git add package-lock.json 2>/dev/null || true
+  [ -d dist ] && git add dist 2>/dev/null || true
+  SKIP_VERSION_BUMP=1 git commit --amend --no-edit --no-verify >/dev/null 2>&1 || true
+  git tag -f "v${VERSION}" >/dev/null 2>&1 || true
+elif [ "$MODE" = "OK" ] && [ -n "$VERSION" ]; then
+  git tag -f "v${VERSION}" >/dev/null 2>&1 || true
+fi
+
+exit 0

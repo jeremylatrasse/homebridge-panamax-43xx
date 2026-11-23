@@ -4,8 +4,13 @@ homebridge-panamax-43xx.xcodeproj/
 Panamax4320ProHomebridge/
 Panamax4320ProHomebridge.xcodeproj/
 .github/
+.githooks/
+.agents/
+.gemini/
 .vscode/
 .idea/
+Makefile
+MAINTAINING.md
 tsconfig.json
 test-panamax.mjs
 .DS_Store

@@ -1,0 +1,74 @@
+name: Test, Tag & Publish on Push
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    # Skip release/skip-ci commits to avoid loops or redundant runs
+    if: "!startsWith(github.event.head_commit.message, 'chore(release):') && !contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install devDependencies & Run Tests
+        run: |
+          npm ci
+          npm test
+
+      - name: Create or update vX.Y.Z git tag matching package.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --force || true
+
+          VERSION=$(node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const version = String(pkg.version || "").trim().replace(/^v/, "");
+            if (!/^\d+\.\d+\.\d+/.test(version)) {
+              console.error("Invalid package.json version:", pkg.version);
+              process.exit(1);
+            }
+            process.stdout.write(version);
+          ')
+
+          echo "Syncing git tag v${VERSION} to $(git rev-parse --short HEAD)..."
+          git tag -f "v${VERSION}"
+          git push origin -f "refs/tags/v${VERSION}"
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::notice::NPM_TOKEN secret is not configured; skipping npm publish. Add an npm Automation token as repository secret NPM_TOKEN to enable automatic publishing."
+            exit 0
+          fi
+
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+
+          if npm view "${PKG_NAME}@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "${PKG_NAME}@${PKG_VERSION} is already published on npm. Skipping publish."
+            exit 0
+          fi
+
+          echo "Publishing ${PKG_NAME}@${PKG_VERSION} to npm..."
+          npm publish --access public

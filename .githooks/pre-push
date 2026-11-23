@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Verifies that HEAD has an incremented version in package.json relative to the
+# remote branch before pushing to GitHub.
+
+if [ "$SKIP_VERSION_BUMP" = "1" ]; then
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip deletions, tag pushes, and no-op pushes
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ] || [ "$local_sha" = "$remote_sha" ]; then
+    continue
+  fi
+  case "$local_ref" in
+    refs/tags/*) continue ;;
+  esac
+
+  CHECK="$(/usr/bin/python3 - "$local_sha" "$remote_sha" <<'PY'
+import json, re, subprocess, sys
+
+def parse_ver(v):
+    m = re.match(r"^v?(\d+)\.(\d+)\.(\d+)", str(v or "").strip())
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else (1, 0, 0)
+
+def git_pkg_ver(ref):
+    if not ref or re.match(r"^0+$", ref):
+        return None
+    try:
+        out = subprocess.check_output(["git", "show", f"{ref}:package.json"], stderr=subprocess.DEVNULL, text=True)
+        return parse_ver(json.loads(out).get("version"))
+    except Exception:
+        return None
+
+local_v = git_pkg_ver(sys.argv[1])
+remote_v = git_pkg_ver(sys.argv[2])
+
+if remote_v is None or (local_v and local_v > remote_v):
+    sys.stdout.write("OK")
+else:
+    lv = ".".join(map(str, local_v)) if local_v else "unknown"
+    rv = ".".join(map(str, remote_v)) if remote_v else "unknown"
+    sys.stdout.write(f"FAIL:{lv}:{rv}")
+PY
+)"
+
+  if [ "$CHECK" != "OK" ]; then
+    LOCAL_V="$(echo "$CHECK" | cut -d: -f2)"
+    REMOTE_V="$(echo "$CHECK" | cut -d: -f3)"
+    echo "Error: Refusing to push $local_ref — package.json version ($LOCAL_V) is not greater than remote ($REMOTE_V)." >&2
+    echo "Run 'npm run bump' and commit, or bypass with 'SKIP_VERSION_BUMP=1 git push'." >&2
+    exit 1
+  fi
+done
+
+exit 0

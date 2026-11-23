@@ -1,6 +1,11 @@
-import { EventEmitter } from 'events';
-import * as net from 'net';
+import { EventEmitter } from 'node:events';
+import * as net from 'node:net';
 import { Logger } from 'homebridge';
+import {
+  PANAMAX_DEFAULT_DELAY,
+  PANAMAX_DEFAULT_POLL_INTERVAL,
+  PANAMAX_DEFAULT_PORT,
+} from './settings';
 
 export interface PanamaxClientConfig {
   host: string;
@@ -115,11 +120,11 @@ export class PanamaxClient extends EventEmitter {
       throw new Error(`[PanamaxClient] ${validation.reason}`);
     }
 
-    this.host = config.host;
-    this.port = config.port || 23;
-    this.pollIntervalMs = Math.max((config.pollInterval || 10) * 1000, 2000);
+    this.host = config.host.trim();
+    this.port = config.port || PANAMAX_DEFAULT_PORT;
+    this.pollIntervalMs = Math.max((config.pollInterval || PANAMAX_DEFAULT_POLL_INTERVAL) * 1000, 2000);
     this.timeoutMs = Math.max((config.timeout || 5) * 1000, 1000);
-    this.delayMs = Math.max((config.delay !== undefined ? config.delay : 30) * 1000, 0);
+    this.delayMs = Math.max((config.delay !== undefined ? config.delay : PANAMAX_DEFAULT_DELAY) * 1000, 0);
   }
 
   public start(): void {
@@ -481,16 +486,16 @@ export class PanamaxClient extends EventEmitter {
     }
 
     // Parse ID responses
-    // E.g., "$PANAMAX", "$MAX 4320-PRO", "$M4320-PRO", "$FIRMWARE: 1.0"
+    // E.g., "$PANAMAX", "$MAX 4315-PRO", "$M4315-PRO", "$MAX 4320-PRO", "$M4320-PRO", "$FIRMWARE: 1.0"
     if (line.startsWith('$PANAMAX')) {
       return;
     }
-    if (line.match(/^\$(MAX\s*4320|M4320)/i)) {
+    if (/^\$(MAX\s*43(?:15|20)|M43(?:15|20))/i.test(line)) {
       this.status.model = line.replace(/^\$/, '').trim();
       this.emit('info', this.status);
       return;
     }
-    if (line.match(/^\$FIRMWARE/i)) {
+    if (/^\$FIRMWARE/i.test(line)) {
       this.status.firmware = line.replace(/^\$FIRMWARE:\s*/i, '').trim();
       this.emit('info', this.status);
       return;
