@@ -179,8 +179,8 @@ This repository uses local hooks (`pre-commit`, `post-commit`, `pre-push`, insta
   ```
 
 ### GitHub Actions (`.github/workflows/bump-version.yml`)
-* On every push to `main` / `master` (except `chore(release):` or `[skip ci]` commits), CI checks out the repo, runs `npm ci && npm test`, creates/updates the `vX.Y.Z` git tag matching `package.json`, and automatically runs `npm publish --access public` if that version is not already published on npm.
-* To enable automatic npm publishing in GitHub Actions, add an npm **Automation** (or Granular Access) token as a repository secret named **`NPM_TOKEN`** under *Settings → Secrets and variables → Actions*. If `NPM_TOKEN` is not set, the workflow logs a notice and skips publishing cleanly.
+* On every push to `main` / `master` (except `chore(release):` or `[skip ci]` commits) or manual `workflow_dispatch`, CI checks out the repo on Node 24, runs `npm ci && npm test`, creates/updates the `vX.Y.Z` git tag matching `package.json`, and runs `npm publish --access public` if that version is not already published on npm.
+* Supports **npm Trusted Publishing (OIDC)** automatically via `id-token: write` (configure Trusted Publisher on npmjs.com with workflow filename `bump-version.yml`) as well as a classic `NPM_TOKEN` repository secret if configured.
 * **Do not** add a second unconditional `npm version patch` step in CI while local `pre-commit` hooks are active, or every commit will be double-bumped.
 
 ### Publishing to npm & `homebridge/verified` Checklist
@@ -189,7 +189,7 @@ This repository uses local hooks (`pre-commit`, `post-commit`, `pre-push`, insta
    npm pack --dry-run
    ```
 2. Run `npm test` and confirm clean `git status`.
-3. Push to `main` (CI automatically runs tests, tags `vX.Y.Z`, and publishes to npm when `NPM_TOKEN` is configured), or publish manually:
+3. Push to `main` (CI automatically runs tests, tags `vX.Y.Z`, and publishes to npm via OIDC Trusted Publishing or `NPM_TOKEN`), or publish manually:
    ```bash
    npm publish --access public
    ```

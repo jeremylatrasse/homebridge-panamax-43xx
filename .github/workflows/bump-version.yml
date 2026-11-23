@@ -18,18 +18,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: '24'
 
       - name: Install devDependencies & Run Tests
         run: |
+          node -v
+          npm -v
           npm ci
           npm test
 
@@ -58,11 +59,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -z "$NODE_AUTH_TOKEN" ]; then
-            echo "::notice::NPM_TOKEN secret is not configured; skipping npm publish. Add an npm Automation token as repository secret NPM_TOKEN to enable automatic publishing."
-            exit 0
-          fi
-
           PKG_NAME=$(node -p "require('./package.json').name")
           PKG_VERSION=$(node -p "require('./package.json').version")
 
@@ -71,5 +67,12 @@ jobs:
             exit 0
           fi
 
-          echo "Publishing ${PKG_NAME}@${PKG_VERSION} to npm..."
+          # Support both npm Trusted Publishing (OIDC, no NPM_TOKEN needed) and classic NPM_TOKEN secret
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            echo "Publishing ${PKG_NAME}@${PKG_VERSION} to npm using NPM_TOKEN..."
+            printf "//registry.npmjs.org/:_authToken=%s\n" "$NODE_AUTH_TOKEN" > ~/.npmrc
+          else
+            echo "Publishing ${PKG_NAME}@${PKG_VERSION} to npm using GitHub OIDC Trusted Publishing..."
+          fi
+
           npm publish --access public
